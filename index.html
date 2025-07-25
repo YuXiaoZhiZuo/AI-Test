@@ -644,7 +644,7 @@
             backLight.position.set(-1, -1, -1);
             scene.add(backLight);
             
-            // 创建卡通小人模型（使用基本几何体作为示例）
+            // 创建卡通小人模型
             createCharacter();
             
             // 添加控制器（仅允许Y轴旋转）
@@ -659,72 +659,83 @@
             // 处理窗口大小变化
             window.addEventListener('resize', onWindowResize);
             onWindowResize();
-            
-            // 开始动画循环
-            animate();
+
+            //全局变量
+            let mixer;
             
             // 添加鼠标交互
             setupMouseInteraction();
         }
         
         function createCharacter() {
-            // 创建卡通小人（使用基本几何体作为示例）
-            const group = new THREE.Group();
+            // 创建加载器
+            const loader = new THREE.GLTFLoader();
             
-            // 头部
-            const headGeometry = new THREE.SphereGeometry(0.3, 32, 32);
-            const headMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
-            const head = new THREE.Mesh(headGeometry, headMaterial);
-            head.position.y = 0.7;
-            group.add(head);
-            
-            // 身体
-            const bodyGeometry = new THREE.CylinderGeometry(0.25, 0.2, 0.6, 32);
-            const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x1a3e72 });
-            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-            body.position.y = 0.1;
-            group.add(body);
-            
-            // 眼睛
-            const eyeGeometry = new THREE.SphereGeometry(0.05, 16, 16);
-            const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
-            
-            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-            leftEye.position.set(-0.1, 0.75, 0.25);
-            group.add(leftEye);
-            
-            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-            rightEye.position.set(0.1, 0.75, 0.25);
-            group.add(rightEye);
-            
-            // 手臂
-            const armGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.4, 16);
-            const armMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
-            
-            const leftArm = new THREE.Mesh(armGeometry, armMaterial);
-            leftArm.position.set(-0.3, 0.3, 0);
-            leftArm.rotation.z = Math.PI / 4;
-            group.add(leftArm);
-            
-            const rightArm = new THREE.Mesh(armGeometry, armMaterial);
-            rightArm.position.set(0.3, 0.3, 0);
-            rightArm.rotation.z = -Math.PI / 4;
-            group.add(rightArm);
-            
-            // 腿部
-            const legGeometry = new THREE.CylinderGeometry(0.07, 0.07, 0.4, 16);
-            const legMaterial = new THREE.MeshStandardMaterial({ color: 0x0d2b56 });
-            
-            const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
-            leftLeg.position.set(-0.1, -0.3, 0);
-            group.add(leftLeg);
-            
-            const rightLeg = new THREE.Mesh(legGeometry, legMaterial);
-            rightLeg.position.set(0.1, -0.3, 0);
-            group.add(rightLeg);
-            
-            scene.add(group);
-            model = group;
+            // 加载你的3D模型
+            loader.load(
+                'jianglin.glb', // 替换为你的模型路径
+                (gltf) => {
+                    model = gltf.scene;
+                    
+                    // 调整模型大小和位置
+                    model.scale.set(0.5, 0.5, 0.5); // 缩放比例
+                    model.position.set(0, 0, 0); // 位置
+                    
+                    // 将模型添加到场景
+                    scene.add(model);
+                    
+                    // 检查是否有动画
+                    if (gltf.animations && gltf.animations.length > 0) {
+                        // 创建动画混合器
+                        const mixer = new THREE.AnimationMixer(model);
+                        
+                        // 播放所有动画
+                        gltf.animations.forEach((clip) => {
+                            const action = mixer.clipAction(clip);
+                            action.play();
+                        });
+                        
+                        // 将mixer添加到动画循环
+                        function animate() {
+                            requestAnimationFrame(animate);
+                            
+                            // 更新动画混合器
+                            if (mixer) mixer.update(0.032); // 使用固定时间步长
+                            
+                            // 更新控制器
+                            if (controls) controls.update();
+                            
+                            // 渲染场景
+                            renderer.render(scene, camera);
+                        }
+                        
+                        animate(); // 启动动画循环
+                    } else {
+                        console.log('模型没有包含动画');
+                        // 如果没有动画，使用原来的动画循环
+                        animate();
+                    }
+                    
+                    // 打印模型信息调试
+                    console.log('模型加载成功:', model);
+                },
+                (xhr) => {
+                    // 加载进度回调
+                    console.log((xhr.loaded / xhr.total * 100) + '% 已加载');
+                },
+                (error) => {
+                    // 加载错误回调
+                    console.error('模型加载错误:', error);
+                    
+                    // 加载失败时显示错误占位符
+                    const errorGeometry = new THREE.BoxGeometry(1, 1, 1);
+                    const errorMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                    model = new THREE.Mesh(errorGeometry, errorMaterial);
+                    scene.add(model);
+                    
+                    animate(); // 启动基本动画循环
+                }
+            );
         }
         
         function onWindowResize() {
